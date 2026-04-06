@@ -1,0 +1,165 @@
+version: "3.9"
+
+# ═══════════════════════════════════════════════════════════════════
+# SANKƆFA-BRIDGE — Production Stack
+# Stage 5 — African Corridor Scale
+#
+# Services:
+#   api          — FastAPI application (SANKƆFA-BRIDGE core)
+#   worker       — Background pipeline worker (ingestion loop)
+#   postgres     — Primary database (replaces SQLite)
+#   redis        — Velocity tracking, duplicate detection, session cache
+#   nginx        — Reverse proxy with TLS termination
+#
+# Usage:
+#   Development:   docker-compose up
+#   Production:    docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── API SERVER ───────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sankofa-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://sankofa:${POSTGRES_PASSWORD}@postgres:5432/sankofa_bridge
+      - REDIS_URL=redis://redis:6379/0
+      - SANKOFA_API_KEY=${SANKOFA_API_KEY}
+      - SANKOFA_SECRET_SEED=${SANKOFA_SECRET_SEED}
+      - ACTIVE_CONNECTOR=${ACTIVE_CONNECTOR:-mock}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - RECEIVER_API_URL=${RECEIVER_API_URL:-}
+      - RECEIVER_API_KEY=${RECEIVER_API_KEY:-}
+      # Connector-specific (set the ones relevant to your source type)
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - S3_BUCKET=${S3_BUCKET:-}
+      - S3_REGION=${S3_REGION:-us-east-1}
+      - SFTP_HOST=${SFTP_HOST:-}
+      - SFTP_PORT=${SFTP_PORT:-22}
+      - SFTP_USER=${SFTP_USER:-}
+      - SOURCE_API_URL=${SOURCE_API_URL:-}
+      - SOURCE_API_KEY=${SOURCE_API_KEY:-}
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - sankofa-net
+
+  # ── PIPELINE WORKER ──────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sankofa-worker
+    restart: unless-stopped
+    command: ["python", "main.py"]
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://sankofa:${POSTGRES_PASSWORD}@postgres:5432/sankofa_bridge
+      - REDIS_URL=redis://redis:6379/0
+      - SANKOFA_API_KEY=${SANKOFA_API_KEY}
+      - SANKOFA_SECRET_SEED=${SANKOFA_SECRET_SEED}
+      - ACTIVE_CONNECTOR=${ACTIVE_CONNECTOR:-mock}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - RECEIVER_API_URL=${RECEIVER_API_URL:-}
+      - RECEIVER_API_KEY=${RECEIVER_API_KEY:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - S3_BUCKET=${S3_BUCKET:-}
+      - SFTP_HOST=${SFTP_HOST:-}
+      - SFTP_USER=${SFTP_USER:-}
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sankofa-net
+
+  # ── POSTGRESQL ───────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: sankofa-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=sankofa_bridge
+      - POSTGRES_USER=sankofa
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sankofa -d sankofa_bridge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sankofa-net
+
+  # ── REDIS ─────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: sankofa-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sankofa-net
+
+  # ── NGINX (Production) ───────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: sankofa-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./ui:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+    networks:
+      - sankofa-net
+    profiles:
+      - production
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  sankofa-net:
+    driver: bridge
+    name: sankofa-bridge-network

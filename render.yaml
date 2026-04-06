@@ -1,0 +1,46 @@
+## SANKƆFA-BRIDGE — Render.com Deployment
+## Auto-detected by Render when you connect this repo
+
+services:
+  - type: web
+    name: sankofa-bridge
+    env: python
+    region: oregon
+    plan: free
+
+    buildCommand: pip install -r requirements.txt && python startup.py
+    startCommand: uvicorn api.server:app --host 0.0.0.0 --port $PORT
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: SANKOFA_API_KEY
+        generateValue: true
+      - key: SANKOFA_SECRET_SEED
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sankofa-db
+          property: connectionString
+      - key: ACTIVE_CONNECTOR
+        value: mock
+      - key: COMPLIANCE_GATE_CLEARED
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DEBUG
+        value: "false"
+      - key: JURISDICTION
+        value: GH
+      - key: RECEIVER_API_URL
+        value: ""
+      - key: RECEIVER_API_KEY
+        value: ""
+      - key: ANTHROPIC_API_KEY
+        value: ""
+
+databases:
+  - name: sankofa-db
+    plan: free
+    databaseName: sankofa_bridge
+    user: sankofa

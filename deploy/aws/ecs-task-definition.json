@@ -1,0 +1,62 @@
+{
+  "family": "sankofa-bridge",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/sankofaBridgeTaskRole",
+
+  "containerDefinitions": [
+    {
+      "name": "sankofa-bridge",
+      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/sankofa-bridge:latest",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 8000, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "LOG_LEVEL",    "value": "INFO" },
+        { "name": "JURISDICTION", "value": "GH"   },
+        { "name": "DEBUG",        "value": "false" }
+      ],
+      "secrets": [
+        { "name": "SANKOFA_API_KEY",    "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/sankofa/api-key" },
+        { "name": "SANKOFA_SECRET_SEED","valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/sankofa/secret-seed" },
+        { "name": "DATABASE_URL",       "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/sankofa/database-url" },
+        { "name": "RECEIVER_API_KEY",   "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/sankofa/receiver-api-key" },
+        { "name": "RECEIVER_API_URL",   "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/sankofa/receiver-api-url" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/sankofa-bridge",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 15
+      },
+      "readonlyRootFilesystem": false,
+      "ulimits": [
+        { "name": "nofile", "softLimit": 65536, "hardLimit": 65536 }
+      ]
+    }
+  ],
+
+  "_SETUP_NOTES": {
+    "1_replace": "Replace ACCOUNT_ID and REGION throughout",
+    "2_ssm":     "Store secrets in AWS SSM Parameter Store as SecureString",
+    "3_iam":     "sankofaBridgeTaskRole needs: S3 read (if S3 connector), SSM read",
+    "4_rds":     "Provision RDS PostgreSQL — use connection string in DATABASE_URL parameter",
+    "5_alb":     "Place Application Load Balancer in front — target group health check: /health",
+    "6_vpc":     "Run in private subnet — ALB in public subnet",
+    "7_logs":    "Create CloudWatch log group: /ecs/sankofa-bridge",
+    "8_scale":   "ECS service desired count: 2 for HA — enable auto-scaling on CPU > 70%"
+  }
+}

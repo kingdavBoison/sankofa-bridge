@@ -1,0 +1,108 @@
+# SANKƆFA-BRIDGE — GCP Cloud Run Service Definition
+# Deploy with: gcloud run services replace deploy/gcp/cloudrun.yaml
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: sankofa-bridge
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/description: "SANKƆFA-BRIDGE Sovereign Data Orchestration System"
+
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/cpu-throttling: "false"
+
+    spec:
+      serviceAccountName: sankofa-bridge-sa@PROJECT_ID.iam.gserviceaccount.com
+      containerConcurrency: 80
+      timeoutSeconds: 60
+
+      containers:
+        - image: gcr.io/PROJECT_ID/sankofa-bridge:latest
+          ports:
+            - containerPort: 8000
+
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+
+          env:
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: JURISDICTION
+              value: "GH"
+            - name: DEBUG
+              value: "false"
+
+          # Secrets from Google Secret Manager
+          - name: SANKOFA_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: sankofa-api-key
+                key: latest
+          - name: SANKOFA_SECRET_SEED
+            valueFrom:
+              secretKeyRef:
+                name: sankofa-secret-seed
+                key: latest
+          - name: DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: sankofa-database-url
+                key: latest
+          - name: RECEIVER_API_URL
+            valueFrom:
+              secretKeyRef:
+                name: sankofa-receiver-api-url
+                key: latest
+          - name: RECEIVER_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: sankofa-receiver-api-key
+                key: latest
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+# ── Setup Commands ────────────────────────────────────────────────────────────
+# 1. Enable APIs:
+#    gcloud services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com
+#
+# 2. Create service account:
+#    gcloud iam service-accounts create sankofa-bridge-sa --display-name "SANKƆFA-BRIDGE"
+#
+# 3. Store secrets:
+#    echo -n "your-key" | gcloud secrets create sankofa-api-key --data-file=-
+#    echo -n "your-seed" | gcloud secrets create sankofa-secret-seed --data-file=-
+#    echo -n "postgresql://..." | gcloud secrets create sankofa-database-url --data-file=-
+#
+# 4. Grant access:
+#    gcloud secrets add-iam-policy-binding sankofa-api-key \
+#      --member="serviceAccount:sankofa-bridge-sa@PROJECT_ID.iam.gserviceaccount.com" \
+#      --role="roles/secretmanager.secretAccessor"
+#
+# 5. Build and deploy:
+#    gcloud builds submit --tag gcr.io/PROJECT_ID/sankofa-bridge:latest
+#    gcloud run services replace deploy/gcp/cloudrun.yaml --region us-central1
+#
+# 6. Add Cloud SQL (PostgreSQL):
+#    gcloud sql instances create sankofa-db --database-version POSTGRES_16 --tier db-f1-micro
+#    gcloud sql databases create sankofa_bridge --instance sankofa-db
+#    Add --add-cloudsql-instances PROJECT_ID:REGION:sankofa-db to the run service

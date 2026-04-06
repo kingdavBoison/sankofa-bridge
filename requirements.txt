@@ -1,0 +1,31 @@
+# SANKƆFA-BRIDGE — Production Dependencies
+# VPF Governance Architecture | David King Boison
+
+# Core API
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+httpx==0.27.2
+pydantic==2.9.2
+pydantic-settings==2.6.1
+
+# Database
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+asyncpg==0.30.0
+alembic==1.14.0
+
+# Security
+cryptography==43.0.3
+bcrypt==4.2.0
+python-dotenv==1.0.1
+
+# HTTP client
+aiohttp==3.11.7
+
+# Testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
+anyio==4.6.2
+
+# Utilities
+python-multipart==0.0.12

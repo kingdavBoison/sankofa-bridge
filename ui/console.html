@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SANKƆFA-BRIDGE — Operator Console</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gold: #C9922A; --gold-dim: #8A6218; --gold-bg: rgba(201,146,42,0.10);
+    --dark: #0C0D12; --dark2: #13141C; --dark3: #1A1C28;
+    --dark4: #222438; --dark5: #2A2D45;
+    --text: #E4E2D8; --text2: #9E9C92; --text3: #5A5856;
+    --green: #2DBF6F; --green-bg: rgba(45,191,111,0.10);
+    --red: #E04848; --red-bg: rgba(224,72,72,0.10);
+    --amber: #E0A030; --amber-bg: rgba(224,160,48,0.10);
+    --blue: #4A9AE0; --blue-bg: rgba(74,154,224,0.10);
+    --border: rgba(201,146,42,0.12);
+    --border2: rgba(201,146,42,0.25);
+    --radius: 10px; --radius-sm: 6px;
+    --font: 'DM Sans', sans-serif;
+    --font-serif: 'DM Serif Display', serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  html, body { height: 100%; background: var(--dark); color: var(--text); font-family: var(--font); font-size: 13px; line-height: 1.6; overflow: hidden; }
+
+  /* ── LAYOUT ── */
+  .shell { display: grid; grid-template-rows: 52px 1fr; grid-template-columns: 200px 1fr 340px; height: 100vh; }
+  .topbar { grid-column: 1/-1; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--dark2); border-bottom: 1px solid var(--border2); }
+  .sidebar { background: var(--dark2); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+  .main { overflow-y: auto; padding: 20px; }
+  .copilot-panel { background: var(--dark2); border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+
+  /* ── TOPBAR ── */
+  .tb-brand { display: flex; align-items: baseline; gap: 10px; }
+  .tb-logo { font-family: var(--font-serif); font-size: 18px; color: var(--gold); letter-spacing: 0.3px; }
+  .tb-sub { font-size: 10px; color: var(--text3); letter-spacing: 1.2px; text-transform: uppercase; }
+  .tb-right { display: flex; align-items: center; gap: 14px; }
+  .tb-badge { display: flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border2); background: var(--gold-bg); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); font-weight: 500; }
+  .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
+
+  /* ── SIDEBAR NAV ── */
+  .nav-section { font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text3); padding: 10px 8px 4px; margin-top: 4px; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: var(--radius-sm); cursor: pointer; transition: all .15s; border: 1px solid transparent; color: var(--text2); font-size: 12px; }
+  .nav-item:hover { background: var(--dark4); color: var(--text); }
+  .nav-item.active { background: var(--dark4); border-color: var(--border); color: var(--gold); }
+  .nav-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .nav-count { margin-left: auto; background: var(--red-bg); color: var(--red); border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 500; }
+
+  /* ── PANELS ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── METRICS ── */
+  .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+  .metric { background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .metric-label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+  .metric-val { font-family: var(--font-mono); font-size: 24px; font-weight: 500; line-height: 1; }
+  .metric-sub { font-size: 10px; color: var(--text3); margin-top: 4px; }
+  .c-gold { color: var(--gold); }
+  .c-green { color: var(--green); }
+  .c-amber { color: var(--amber); }
+  .c-red { color: var(--red); }
+  .c-blue { color: var(--blue); }
+
+  /* ── SECTION HEADERS ── */
+  .sec-hdr { font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+  /* ── CARDS ── */
+  .card { background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 8px; transition: border-color .15s; }
+  .card:hover { border-color: var(--border2); }
+  .card-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .card-title { font-size: 12px; font-weight: 500; color: var(--text); }
+  .card-meta { font-size: 10px; color: var(--text3); }
+  .card-body { font-size: 11px; color: var(--text2); line-height: 1.5; }
+
+  /* ── BADGES ── */
+  .badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 500; }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-gold { background: var(--gold-bg); color: var(--gold); border: 1px solid var(--border2); }
+  .badge-blue { background: var(--blue-bg); color: var(--blue); }
+
+  /* ── STATE MACHINE ── */
+  .state-flow { display: flex; align-items: center; gap: 0; overflow-x: auto; margin-bottom: 20px; padding: 14px; background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius); }
+  .state-node { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+  .state-circle { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--border2); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 9px; color: var(--text3); background: var(--dark4); transition: all .3s; cursor: default; }
+  .state-circle.done { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+  .state-circle.current { background: var(--gold-bg); border-color: var(--gold); color: var(--gold); animation: pulse 1.5s ease-in-out infinite; }
+  .state-circle.error { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+  .state-label { font-size: 8px; color: var(--text3); text-align: center; width: 44px; text-transform: uppercase; letter-spacing: .3px; }
+  .state-arrow { width: 18px; height: 1px; background: var(--border2); margin-top: -16px; flex-shrink: 0; }
+
+  /* ── COMPLIANCE GATE ── */
+  .gate-q { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 4px; cursor: pointer; transition: all .15s; font-size: 11px; color: var(--text2); line-height: 1.5; }
+  .gate-q:hover { border-color: var(--border2); }
+  .gate-q.answered { border-color: rgba(45,191,111,.25); background: rgba(45,191,111,.04); color: var(--text); }
+  .gate-chk { width: 16px; height: 16px; border-radius: 3px; border: 1px solid var(--border2); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; font-size: 9px; transition: all .15s; }
+  .gate-chk.ok { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+  .gate-chk.pend { color: var(--text3); }
+  .gate-progress-bar { height: 4px; background: var(--dark4); border-radius: 2px; overflow: hidden; margin: 10px 0; }
+  .gate-progress-fill { height: 100%; border-radius: 2px; background: var(--amber); transition: width .4s ease, background .4s; }
+
+  /* ── AUDIT LOG ── */
+  .audit-row { display: flex; gap: 8px; padding: 5px 10px; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 10px; align-items: baseline; }
+  .audit-time { color: var(--text3); flex-shrink: 0; width: 56px; }
+  .audit-type { width: 80px; flex-shrink: 0; font-weight: 500; }
+  .audit-msg { color: var(--text2); flex: 1; }
+  .at-AUDIT { color: var(--gold); }
+  .at-INFO { color: var(--blue); }
+  .at-VALID { color: var(--green); }
+  .at-WARN { color: var(--amber); }
+  .at-ERROR { color: var(--red); }
+
+  /* ── FILE ROWS ── */
+  .file-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 6px; cursor: pointer; transition: all .15s; }
+  .file-row:hover { border-color: var(--border2); }
+  .file-icon { width: 30px; height: 30px; border-radius: var(--radius-sm); background: var(--dark4); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 8px; color: var(--gold); flex-shrink: 0; font-weight: 500; text-align: center; line-height: 1.2; }
+  .file-name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-meta { font-size: 10px; color: var(--text3); }
+  .prog-bar { height: 2px; background: var(--dark4); border-radius: 1px; overflow: hidden; margin-top: 4px; }
+  .prog-fill { height: 100%; border-radius: 1px; transition: width .5s ease; }
+
+  /* ── COPILOT PANEL ── */
+  .cop-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .cop-title { font-size: 11px; font-weight: 500; color: var(--gold); letter-spacing: .5px; }
+  .cop-layer { font-size: 9px; color: var(--text3); letter-spacing: .8px; text-transform: uppercase; }
+  .cop-chat { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .cop-msg { }
+  .cop-msg-label { font-size: 9px; letter-spacing: .8px; text-transform: uppercase; color: var(--gold); margin-bottom: 3px; font-weight: 500; }
+  .cop-msg-label.user { color: var(--text3); }
+  .cop-bubble { background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 11px; color: var(--text2); line-height: 1.6; white-space: pre-wrap; }
+  .cop-bubble.user { background: var(--dark4); border-color: var(--border2); color: var(--text); }
+  .cop-bubble.typing::after { content: '▋'; animation: blink .8s step-end infinite; }
+  @keyframes blink { 50%{opacity:0} }
+  .cop-footer { padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .cop-input-row { display: flex; gap: 6px; }
+  .cop-input { flex: 1; background: var(--dark3); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 7px 12px; color: var(--text); font-family: var(--font); font-size: 11px; outline: none; transition: border-color .15s; }
+  .cop-input:focus { border-color: var(--gold); }
+  .cop-input::placeholder { color: var(--text3); }
+  .cop-btn { padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: var(--gold-bg); color: var(--gold); font-family: var(--font); font-size: 11px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .cop-btn:hover { background: rgba(201,146,42,.2); }
+  .cop-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .chip { padding: 3px 9px; border-radius: 3px; border: 1px solid var(--border); background: transparent; color: var(--text3); font-size: 10px; cursor: pointer; transition: all .15s; font-family: var(--font); }
+  .chip:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-bg); }
+
+  /* ── VPF QUOTE ── */
+  .vpf-quote { background: var(--gold-bg); border: 1px solid var(--border2); border-left: 3px solid var(--gold); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 11px; color: var(--text2); font-style: italic; line-height: 1.7; margin-bottom: 16px; }
+
+  /* ── BUTTONS ── */
+  .btn { padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: transparent; color: var(--text2); font-family: var(--font); font-size: 11px; cursor: pointer; transition: all .15s; font-weight: 500; }
+  .btn:hover { background: var(--dark4); color: var(--text); border-color: var(--gold); }
+  .btn-primary { background: var(--gold-bg); border-color: var(--gold); color: var(--gold); }
+  .btn-primary:hover { background: rgba(201,146,42,.2); }
+  .btn-danger { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+  .btn-row { display: flex; gap: 6px; margin-top: 10px; }
+
+  /* ── DIVIDER ── */
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--dark5); border-radius: 2px; }
+
+  /* ── ARCH LAYERS ── */
+  .arch-layer { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 6px; cursor: pointer; transition: all .15s; }
+  .arch-layer:hover { border-color: var(--border2); }
+  .arch-layer.lit { border-color: var(--gold); background: var(--gold-bg); }
+  .arch-num { font-family: var(--font-serif); font-size: 22px; color: var(--gold); width: 24px; text-align: center; flex-shrink: 0; line-height: 1; }
+  .arch-info { flex: 1; }
+  .arch-name { font-size: 12px; font-weight: 500; color: var(--text); }
+  .arch-desc { font-size: 10px; color: var(--text3); margin-top: 2px; line-height: 1.4; }
+
+  /* ── EXCEPTION CARD ── */
+  .exc-card { background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; }
+  .exc-card.critical { border-color: rgba(224,72,72,.4); }
+  .exc-card.high { border-color: rgba(224,160,48,.3); }
+  .exc-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .exc-id { font-family: var(--font-mono); font-size: 11px; color: var(--gold); font-weight: 500; }
+  .exc-flags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .exc-flag { padding: 1px 6px; border-radius: 3px; font-size: 9px; font-family: var(--font-mono); background: var(--red-bg); color: var(--red); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="tb-brand">
+      <div class="tb-logo">SANKƆFA-BRIDGE</div>
+      <div class="tb-sub">Sovereign Data Orchestration System</div>
+    </div>
+    <div class="tb-right">
+      <div id="tb-gate" class="badge badge-amber">Gate Pending</div>
+      <div class="tb-badge"><div class="pulse"></div>System Online</div>
+      <div class="tb-badge badge-gold">VPF Governed</div>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="nav-section">Operations</div>
+    <div class="nav-item active" onclick="nav('dashboard')">
+      <div class="nav-dot" style="background:var(--gold)"></div> Dashboard
+    </div>
+    <div class="nav-item" onclick="nav('queue')">
+      <div class="nav-dot" style="background:var(--blue)"></div> File Queue
+      <span id="nav-queue-count" class="nav-count" style="display:none">0</span>
+    </div>
+    <div class="nav-item" onclick="nav('exceptions')">
+      <div class="nav-dot" style="background:var(--red)"></div> Exceptions
+      <span id="nav-exc-count" class="nav-count" style="display:none">0</span>
+    </div>
+    <div class="nav-section">Governance</div>
+    <div class="nav-item" onclick="nav('compliance')">
+      <div class="nav-dot" style="background:var(--amber)"></div> Compliance Gate
+    </div>
+    <div class="nav-item" onclick="nav('architecture')">
+      <div class="nav-dot" style="background:var(--green)"></div> Architecture
+    </div>
+    <div class="nav-item" onclick="nav('audit')">
+      <div class="nav-dot" style="background:var(--text3)"></div> Audit Ledger
+    </div>
+    <div class="divider"></div>
+    <div class="nav-section">Stage</div>
+    <div style="padding:8px 10px;background:var(--dark3);border-radius:var(--radius-sm);border:1px solid var(--border)">
+      <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">Build</div>
+      <div style="font-family:var(--font-mono);color:var(--gold);font-size:14px;font-weight:500;margin-top:2px">Stage 4</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:2px">Intelligence Copilot</div>
+    </div>
+    <div style="margin-top:auto;padding:8px 10px;font-size:9px;color:var(--text3);line-height:1.5">
+      Architect:<br><span style="color:var(--text2)">David King Boison</span>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div id="panel-dashboard" class="panel active">
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Files Today</div>
+          <div class="metric-val c-gold" id="m-total">0</div>
+          <div class="metric-sub">Across all states</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Delivered</div>
+          <div class="metric-val c-green" id="m-delivered">0</div>
+          <div class="metric-sub">Successfully processed</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Exceptions</div>
+          <div class="metric-val c-red" id="m-exceptions">0</div>
+          <div class="metric-sub" id="m-exc-sub">Queue clear</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Gate Status</div>
+          <div class="metric-val c-amber" id="m-gate" style="font-size:14px">PENDING</div>
+          <div class="metric-sub" id="m-gate-sub">0 / 18 cleared</div>
+        </div>
+      </div>
+
+      <div class="vpf-quote" id="vpf-principle">
+        "No data moves without provenance. No value moves without custodianship. No system operates without auditability."
+      </div>
+
+      <div class="sec-hdr">File State Machine</div>
+      <div class="state-flow">
+        <div class="state-node"><div class="state-circle" id="st-D">D</div><div class="state-label">Detected</div></div>
+        <div class="state-arrow"></div>
+        <div class="state-node"><div class="state-circle" id="st-DL">DL</div><div class="state-label">Download</div></div>
+        <div class="state-arrow"></div>
+        <div class="state-node"><div class="state-circle" id="st-QZ">QZ</div><div class="state-label">Quarantine</div></div>
+        <div class="state-arrow"></div>
+        <div class="state-node"><div class="state-circle" id="st-VL">VL</div><div class="state-label">Validated</div></div>
+        <div class="state-arrow"></div>
+        <div class="state-node"><div class="state-circle" id="st-TX">TX</div><div class="state-label">Transformed</div></div>
+        <div class="state-arrow"></div>
+        <div class="state-node"><div class="state-circle" id="st-L6">L6</div><div class="state-label">Compliance</div></div>
+        <div class="state-arrow"></div>
+        <div class="state-node"><div class="state-circle" id="st-DV">DV</div><div class="state-label">Delivered</div></div>
+        <div class="state-arrow"></div>
+        <div class="state-node"><div class="state-circle" id="st-AK">AK</div><div class="state-label">Ack'd</div></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="injectDemo()">+ Inject Demo File</button>
+        <button class="btn" onclick="nav('compliance')">Compliance Gate →</button>
+        <button class="btn" onclick="copilotAsk('What is the current system status?')">Ask Copilot</button>
+      </div>
+    </div>
+
+    <!-- FILE QUEUE -->
+    <div id="panel-queue" class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="sec-hdr" style="margin:0;border:0;padding:0">File Queue</div>
+        <button class="btn btn-primary" onclick="injectDemo()">+ Inject Demo File</button>
+      </div>
+      <div id="file-list">
+        <div style="text-align:center;padding:40px;color:var(--text3);font-size:12px">
+          No files in queue.<br>
+          <span style="font-size:10px;margin-top:4px;display:block">Inject a demo file or connect a real source.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXCEPTIONS -->
+    <div id="panel-exceptions" class="panel">
+      <div class="sec-hdr">Exception Queue</div>
+      <div id="exceptions-list">
+        <div style="text-align:center;padding:40px;color:var(--text3);font-size:12px">No open exceptions.</div>
+      </div>
+    </div>
+
+    <!-- COMPLIANCE GATE -->
+    <div id="panel-compliance" class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="sec-hdr" style="margin:0;border:0;padding:0">18-Question Compliance Gate</div>
+        <span id="gate-label" class="badge badge-amber">0 / 18 cleared</span>
+      </div>
+      <div class="gate-progress-bar"><div id="gate-prog" class="gate-progress-fill" style="width:0%"></div></div>
+
+      <div style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Legal & Jurisdictional (Q1–7)</div>
+      <div id="gate-legal"></div>
+      <div style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Technical (Q8–13)</div>
+      <div id="gate-tech"></div>
+      <div style="font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Governance (Q14–18)</div>
+      <div id="gate-gov"></div>
+    </div>
+
+    <!-- ARCHITECTURE -->
+    <div id="panel-architecture" class="panel">
+      <div class="sec-hdr">System Architecture — 7 Layers</div>
+      <div id="arch-layers"></div>
+    </div>
+
+    <!-- AUDIT -->
+    <div id="panel-audit" class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="sec-hdr" style="margin:0;border:0;padding:0">Audit Ledger — Append Only</div>
+        <span class="badge badge-green">Immutable</span>
+      </div>
+      <div style="background:var(--dark3);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+        <div style="display:flex;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border2);background:var(--dark4)">
+          <div style="font-size:9px;color:var(--text3);width:56px;text-transform:uppercase;letter-spacing:.8px">Time</div>
+          <div style="font-size:9px;color:var(--text3);width:80px;text-transform:uppercase;letter-spacing:.8px">Type</div>
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">Event</div>
+        </div>
+        <div id="audit-log" style="max-height:460px;overflow-y:auto"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- COPILOT PANEL -->
+  <aside class="copilot-panel">
+    <div class="cop-header">
+      <div>
+        <div class="cop-title">Intelligence Copilot</div>
+        <div class="cop-layer">Layer 7 — VPF Human Interface</div>
+      </div>
+      <div class="badge badge-gold" style="font-size:9px">Active</div>
+    </div>
+    <div class="cop-chat" id="copilot-chat"></div>
+    <div class="cop-footer">
+      <div class="cop-input-row">
+        <input class="cop-input" id="cop-input" placeholder="Ask about status, flags, exceptions..." onkeydown="if(event.key==='Enter')sendCop()">
+        <button class="cop-btn" onclick="sendCop()">↑</button>
+      </div>
+      <div class="cop-chips">
+        <button class="chip" onclick="copilotAsk('What is the current system status?')">Status</button>
+        <button class="chip" onclick="copilotAsk('How do I clear the compliance gate?')">Gate</button>
+        <button class="chip" onclick="copilotAsk('Explain SANCTIONS_HIT_SENDER')">Sanctions</button>
+        <button class="chip" onclick="copilotAsk('What are the Ghana AML regulations?')">Ghana AML</button>
+        <button class="chip" onclick="copilotAsk('What is my role as custodian?')">My role</button>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────
+
+const API = '';   // Same origin — set to 'http://localhost:8000' for dev
+const API_KEY = 'dev-key-replace-in-production';
+const H = { 'X-SANKOFA-API-Key': API_KEY, 'Content-Type': 'application/json' };
+
+let gateAnswered = new Set();
+let fileQueue = [];
+let fileCounter = 0;
+let auditEntries = [];
+
+// ── NAVIGATION ────────────────────────────────────
+
+function nav(panel) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + panel).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const map = { dashboard:0, queue:1, exceptions:2, compliance:3, architecture:4, audit:5 };
+  const idx = map[panel];
+  if (idx !== undefined) document.querySelectorAll('.nav-item')[idx]?.classList.add('active');
+}
+
+// ── COMPLIANCE GATE ───────────────────────────────
+
+const GATE_QS = {
+  legal: [
+    [1, "Who are the legally recognized parties — sender, receiver, and platform?"],
+    [2, "What licenses or regulatory approvals cover this in each jurisdiction?"],
+    [3, "What is the legal classification — remittance, digital asset, or settlement clearing?"],
+    [4, "Who is legally responsible for the movement of funds at each stage?"],
+    [5, "Has AML/KYC been completed on sender and receiver? By whom?"],
+    [6, "Who is responsible for sanctions screening? Against which lists?"],
+    [7, "Is tokenization legally permitted in each jurisdiction?"],
+  ],
+  tech: [
+    [8, "What is the exact type of the source system — S3, SFTP, or REST API?"],
+    [9, "Who owns and controls the source system?"],
+    [10, "What is the exact file format — JSON, XML, or binary?"],
+    [11, "What is the exact receiver API contract — endpoint, auth, schema?"],
+    [12, "Is there a sandbox/test environment available?"],
+    [13, "What integrity verification method is used — hash, checksum, signature?"],
+  ],
+  gov: [
+    [14, "Is there a formal contract governing the system operator engagement?"],
+    [15, "What is the compensation model — fixed fee, retainer, or milestone?"],
+    [16, "Who has final settlement authority? Is that documented?"],
+    [17, "What incident response procedure exists for file corruption or interception?"],
+    [18, "What data retention and deletion policy applies to processed files?"],
+  ]
+};
+
+function buildGate() {
+  ['legal','tech','gov'].forEach(cat => {
+    const el = document.getElementById('gate-' + cat);
+    el.innerHTML = GATE_QS[cat].map(([n, q]) =>
+      `<div class="gate-q unanswered" id="gq-${n}" onclick="toggleGate(${n})">
+        <div class="gate-chk pend" id="gc-${n}">?</div>
+        <span>Q${n}. ${q}</span>
+      </div>`
+    ).join('');
+  });
+}
+
+function toggleGate(n) {
+  if (gateAnswered.has(n)) {
+    gateAnswered.delete(n);
+    document.getElementById(`gq-${n}`).className = 'gate-q unanswered';
+    document.getElementById(`gc-${n}`).className = 'gate-chk pend';
+    document.getElementById(`gc-${n}`).textContent = '?';
+  } else {
+    gateAnswered.add(n);
+    document.getElementById(`gq-${n}`).className = 'gate-q answered';
+    document.getElementById(`gc-${n}`).className = 'gate-chk ok';
+    document.getElementById(`gc-${n}`).textContent = '✓';
+    addAuditEntry('AUDIT', `Compliance gate Q${n} answered — ${gateAnswered.size}/18`);
+  }
+  updateGateProgress();
+}
+
+function updateGateProgress() {
+  const n = gateAnswered.size;
+  const pct = Math.round(n / 18 * 100);
+  document.getElementById('gate-prog').style.width = pct + '%';
+  document.getElementById('gate-prog').style.background = n < 18 ? 'var(--amber)' : 'var(--green)';
+  document.getElementById('gate-label').textContent = n < 18 ? `${n} / 18 cleared` : 'Gate Cleared ✓';
+  document.getElementById('gate-label').className = n < 18 ? 'badge badge-amber' : 'badge badge-green';
+  document.getElementById('m-gate').textContent = n < 18 ? 'PENDING' : 'CLEARED';
+  document.getElementById('m-gate').className = n < 18 ? 'metric-val c-amber' : 'metric-val c-green';
+  document.getElementById('m-gate-sub').textContent = `${n} / 18 cleared`;
+  document.getElementById('tb-gate').textContent = n < 18 ? 'Gate Pending' : 'Gate Cleared';
+  document.getElementById('tb-gate').className = n < 18 ? 'badge badge-amber' : 'badge badge-green';
+}
+
+// ── ARCHITECTURE ──────────────────────────────────
+
+const LAYERS = [
+  [7, 'Intelligence Copilot', 'VPF-aligned operator assistant. Reads live state, explains flags, guides decisions. Does not make financial decisions.', 'green'],
+  [6, 'Compliance & Sovereignty Engine', 'Sanctions screening, jurisdiction enforcement, AML pattern detection, KYC verification, VPF provenance gate.', 'amber'],
+  [5, 'Audit Ledger', 'Append-only, tamper-evident JSONL event log. Every action recorded. 7-year retention. Exportable.', 'green'],
+  [4, 'Delivery Engine', 'Authenticated push to receiver API. Circuit breaker, exponential retry, idempotency, acknowledgement.', 'green'],
+  [3, 'Transformation Engine', 'Canonical data model normalization. Source format → delivery payload. Field mapping.', 'green'],
+  [2, 'Validation & Quarantine', '8-check validation: format, size, hash, schema, sender entitlement, duplicate, provenance, policy.', 'green'],
+  [1, 'Connector Layer', 'Modular adapters: S3 / SFTP / REST API / Azure Blob. Currently: MOCK (awaiting source confirmation).', 'amber'],
+];
+
+function buildArch() {
+  document.getElementById('arch-layers').innerHTML = LAYERS.map(([n, name, desc, color]) =>
+    `<div class="arch-layer" id="arch-${n}" onclick="archClick(${n})">
+      <div class="arch-num">${n}</div>
+      <div class="arch-info">
+        <div class="arch-name">${name}</div>
+        <div class="arch-desc">${desc}</div>
+      </div>
+      <div><span class="badge badge-${color === 'green' ? 'green' : 'amber'}">${color === 'green' ? 'Active' : 'Pending'}</span></div>
+    </div>`
+  ).join('');
+}
+
+function archClick(n) {
+  document.querySelectorAll('.arch-layer').forEach(el => el.classList.remove('lit'));
+  document.getElementById('arch-' + n).classList.add('lit');
+  copilotAsk(`What does Layer ${n} do and what is its current status?`);
+}
+
+// ── FILE QUEUE ────────────────────────────────────
+
+const FILE_STATES = ['quarantined', 'validated', 'transformed', 'delivered'];
+const STATE_COLORS = { quarantined:'var(--amber)', validated:'var(--blue)', transformed:'var(--gold)', delivered:'var(--green)', exception:'var(--red)', failed:'var(--red)' };
+const STATE_PROGS = { quarantined:20, validated:45, transformed:70, delivered:100, exception:50, failed:30 };
+
+function injectDemo() {
+  fileCounter++;
+  const types = ['json','xml'];
+  const ftype = types[(fileCounter-1)%2];
+  const senders = ['FINCORP_GH','PAYBRIDGE_NG','SWIFT_KE','DIGITAL_RW'];
+  const sender = senders[(fileCounter-1)%4];
+  const fname = `instruction_${String(fileCounter).padStart(4,'0')}.${ftype}`;
+  const stateIdx = Math.min(Math.floor(Math.random()*3), 2);
+  const state = FILE_STATES[stateIdx];
+
+  const file = { id: `MSG-${String(fileCounter).padStart(6,'0')}`, name: fname, sender, state, format: ftype.toUpperCase(), ts: new Date().toLocaleTimeString() };
+  fileQueue.unshift(file);
+
+  addAuditEntry('INFO', `File detected: ${fname} · sender: ${sender}`);
+  addAuditEntry('VALID', `Hash verified · format validated · state: ${state}`);
+
+  document.getElementById('nav-queue-count').style.display = 'inline';
+  document.getElementById('nav-queue-count').textContent = fileQueue.length;
+  document.getElementById('m-total').textContent = fileQueue.length;
+
+  renderQueue();
+  if (state === 'delivered') {
+    const prev = parseInt(document.getElementById('m-delivered').textContent);
+    document.getElementById('m-delivered').textContent = prev + 1;
+  }
+}
+
+function renderQueue() {
+  const el = document.getElementById('file-list');
+  if (!fileQueue.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px">No files in queue.</div>';
+    return;
+  }
+  el.innerHTML = fileQueue.map(f =>
+    `<div class="file-row">
+      <div class="file-icon">${f.format}</div>
+      <div style="flex:1;min-width:0">
+        <div class="file-name">${f.name}</div>
+        <div class="file-meta">${f.sender} · ${f.ts}</div>
+        <div class="prog-bar"><div class="prog-fill" style="width:${STATE_PROGS[f.state]||20}%;background:${STATE_COLORS[f.state]||'var(--gold)'}"></div></div>
+      </div>
+      <div style="font-size:10px;font-weight:500;color:${STATE_COLORS[f.state]||'var(--gold)'}">${f.state.toUpperCase()}</div>
+    </div>`
+  ).join('');
+}
+
+// ── AUDIT LOG ─────────────────────────────────────
+
+function addAuditEntry(type, msg) {
+  const now = new Date();
+  const t = now.toTimeString().slice(0,8);
+  auditEntries.unshift({ t, type, msg });
+  if (auditEntries.length > 100) auditEntries.pop();
+  renderAudit();
+}
+
+function renderAudit() {
+  document.getElementById('audit-log').innerHTML = auditEntries.map(e =>
+    `<div class="audit-row">
+      <div class="audit-time">${e.t}</div>
+      <div class="audit-type at-${e.type}">${e.type}</div>
+      <div class="audit-msg">${e.msg}</div>
+    </div>`
+  ).join('');
+}
+
+// ── COPILOT ───────────────────────────────────────
+
+const COPILOT_KB = {
+  status: `System status: STAGE 4 — Intelligence Copilot active.\n\nConnector: MOCK (awaiting source system confirmation from counterparty).\nCompliance gate: PENDING — answer all 18 questions to enable live delivery.\nLayers 2-7: Active. Layer 1: Configuration needed.\n\nItems requiring your attention:\n  • Complete the compliance gate (Governance tab)\n  • Confirm source system type with counterparty\n  • Set RECEIVER_API_URL when receiver contract is confirmed`,
+  gate: `The compliance gate has 18 questions across three categories:\n\nLegal (Q1–7): Parties, licences, AML/KYC ownership, sanctions responsibility.\nTechnical (Q8–13): Source system type, file format, receiver API contract.\nGovernance (Q14–18): Formal contract, compensation model, settlement authority.\n\nClick each question in the Compliance Gate tab to mark it answered as you receive written responses. Once all 18 are cleared, set compliance.gate_cleared = True in settings.`,
+  sanctions: `SANCTIONS_HIT_SENDER means the sending entity matched an entry in the sanctions watchlist.\n\nThis is a CRITICAL compliance block under FATF Recommendation 6.\n\nAction required:\n• Escalate immediately to your chief compliance officer\n• Do NOT approve retry without written sanctions clearance\n• Determine if a Suspicious Activity Report (SAR) must be filed with Bank of Ghana\n• Document all steps taken\n\nThis flag cannot be auto-resolved — it requires a named human officer decision.`,
+  ghana: `Ghana regulatory framework for SANKƆFA-BRIDGE:\n\nKey regulators:\n  • Bank of Ghana (BoG) — primary AML/CFT supervisor\n  • Securities and Exchange Commission Ghana (SEC)\n  • Ghana Revenue Authority (GRA)\n\nKey legislation:\n  • Anti-Money Laundering Act 2020 (Act 1044)\n  • Payment Systems and Services Act 2019 (Act 987)\n  • Data Protection Act 2012 (Act 843)\n\nGhana is a FATF member, Risk Tier 1. AML/CFT threshold for reporting: GHS 10,000. All suspicious transactions must be reported via STR to Financial Intelligence Centre (FIC).`,
+  custodian: `Your role as System Architect and Custodian under VPF:\n\nAuthority you hold:\n  • Full system design and configuration authority\n  • Exception review and resolution authority\n  • Compliance gate management\n  • Operator registration and access control\n  • Regulatory reporting and evidence generation\n\nAuthority that stays with other principals:\n  • Transaction approval or settlement\n  • Fund custody or movement\n  • Tokenization or blockchain execution\n\nThis separation is the core of VPF custodianship. The system handles data. You govern the system. Financial principals govern the transactions.`,
+  prohibited: `That action is outside the defined scope of SANKƆFA-BRIDGE under VPF governance.\n\nThis system operates exclusively as a secure data integration layer. It does not:\n  • Hold or move funds\n  • Sign or broadcast blockchain transactions\n  • Approve settlements\n  • Tokenize assets\n  • Custody digital assets\n  • Bypass compliance controls\n\nThose decisions belong with licensed financial principals and their compliance officers.`,
+  default: `I can help you with:\n  • System status — 'what is the current system status?'\n  • Compliance flags — 'explain SANCTIONS_HIT_SENDER'\n  • Ghana regulations — 'what are the Ghana AML rules?'\n  • Gate guidance — 'how do I clear the compliance gate?'\n  • Your role — 'what is my role as custodian?'\n  • Connector setup — 'how do I connect to an SFTP source?'\n\nWhat would you like to know?`
+};
+
+const PROHIBITED_WORDS = ['hold funds','sign transaction','approve settlement','tokenize','custody','broadcast','move funds','private key','bypass compliance'];
+
+function getCopilotResponse(q) {
+  const ql = q.toLowerCase();
+  if (PROHIBITED_WORDS.some(w => ql.includes(w))) return COPILOT_KB.prohibited;
+  if (ql.includes('status') || ql.includes('overview') || ql.includes('health')) return COPILOT_KB.status;
+  if (ql.includes('gate') || ql.includes('question') || ql.includes('clear') || ql.includes('proceed')) return COPILOT_KB.gate;
+  if (ql.includes('sanction')) return COPILOT_KB.sanctions;
+  if (ql.includes('ghana') || ql.includes('aml') || ql.includes('regulation') || ql.includes('bank of ghana')) return COPILOT_KB.ghana;
+  if (ql.includes('custodian') || ql.includes('my role') || ql.includes('vpf') || ql.includes('what can i')) return COPILOT_KB.custodian;
+  if (ql.includes('layer') && /\d/.test(ql)) {
+    const n = ql.match(/layer (\d)/)?.[1];
+    const layer = LAYERS.find(l => l[0] == n);
+    return layer ? `Layer ${n} — ${layer[1]}:\n\n${layer[2]}\n\nStatus: ${layer[3] === 'green' ? 'Active' : 'Pending configuration'}.` : COPILOT_KB.default;
+  }
+  return COPILOT_KB.default;
+}
+
+function copilotAsk(q) {
+  document.getElementById('cop-input').value = q;
+  sendCop();
+}
+
+function sendCop() {
+  const input = document.getElementById('cop-input');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+
+  addCopMsg('You', q, true);
+  addAuditEntry('INFO', `Copilot query: "${q.slice(0,60)}${q.length>60?'...':''}"`);
+
+  const typing = addCopMsg('SANKƆFA-BRIDGE Copilot', '', false, true);
+  setTimeout(() => {
+    const answer = getCopilotResponse(q);
+    typing.querySelector('.cop-bubble').textContent = answer;
+    typing.querySelector('.cop-bubble').classList.remove('typing');
+  }, 700 + Math.random() * 400);
+}
+
+function addCopMsg(sender, text, isUser, isTyping = false) {
+  const chat = document.getElementById('copilot-chat');
+  const div = document.createElement('div');
+  div.className = 'cop-msg';
+  div.innerHTML = `
+    <div class="cop-msg-label ${isUser ? 'user' : ''}">${sender}</div>
+    <div class="cop-bubble ${isUser ? 'user' : ''} ${isTyping ? 'typing' : ''}">${text}</div>
+  `;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+// ── EXCEPTIONS ────────────────────────────────────
+
+function renderExceptions() {
+  const el = document.getElementById('exceptions-list');
+  el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px">No open exceptions. System clean.</div>';
+}
+
+// ── BOOT ──────────────────────────────────────────
+
+function boot() {
+  buildGate();
+  buildArch();
+  renderQueue();
+  renderExceptions();
+  renderAudit();
+
+  addAuditEntry('AUDIT', 'SANKƆFA-BRIDGE v1.0 initialized — VPF governance active — Stage 4');
+  addAuditEntry('INFO', 'System Architect: David King Boison — custodian role confirmed');
+  addAuditEntry('AUDIT', 'Intelligence Copilot (Layer 7) — operational');
+  addAuditEntry('WARN', 'Connector Layer (L1) — MOCK mode, awaiting source system confirmation');
+  addAuditEntry('WARN', 'Compliance gate — 0/18 answers recorded, live delivery blocked');
+
+  setTimeout(() => {
+    addCopMsg('SANKƆFA-BRIDGE Copilot', 'SANKƆFA-BRIDGE is operational under VPF governance. I am your intelligence layer — Layer 7.\n\nCompliance gate is pending (0/18). Layer 1 connector is in MOCK mode. Layers 2–6 are active.\n\nWhat would you like to address first?', false);
+  }, 300);
+}
+
+boot();
+</script>
+</body>
+</html>
